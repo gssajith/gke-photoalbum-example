@@ -1,17 +1,28 @@
-FROM marketplace.gcr.io/google/debian10
-LABEL maintainer "Etsuji Nakai"
-ENV REFRESHED_AT 2021/07/07
+FROM python:3.11-slim-bookworm
+LABEL maintainer="Etsuji Nakai"
+ENV REFRESHED_AT=2025/07/05
 
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y python3 python3-dev wget
-RUN wget https://bootstrap.pypa.io/get-pip.py
-RUN python3 get-pip.py
+# System packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        wget gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade google-cloud-core==1.7.1 \
-	google-cloud-pubsub==2.6.0 google-cloud-storage==1.40.0 \
-	google-cloud-vision==2.3.2 Flask==2.2.3 Flask-SQLAlchemy==3.0.3 \
-	Pillow==8.3.1 PyMySQL==1.0.2 pytz==2022.7.1
-
+# Copy application source
 ADD src /opt/thumbnail/bin
 RUN chmod u+x /opt/thumbnail/bin/worker.py
-CMD ["/opt/thumbnail/bin/worker.py"]
+
+# Install Python dependencies
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install \
+        google-cloud-core==2.4.1 \
+        google-cloud-pubsub==2.21.1 \
+        google-cloud-storage==2.16.0 \
+        google-cloud-vision==3.10.0 \
+        Flask==3.0.3 \
+        Flask-SQLAlchemy==3.1.1 \
+        Pillow==10.3.0 \
+        PyMySQL==1.1.0 \
+        pytz==2024.1
+
+CMD ["python3", "/opt/thumbnail/bin/worker.py"]
