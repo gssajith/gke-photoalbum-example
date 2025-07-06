@@ -1,16 +1,39 @@
-FROM marketplace.gcr.io/google/debian10
-LABEL maintainer "Etsuji Nakai"
-ENV REFRESHED_AT 2021/07/07
+FROM python:3.11-slim-bookworm
 
+LABEL maintainer="Etsuji Nakai"
+ENV REFRESHED_AT=2025-07-06
+
+# Install system dependencies
 RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y python3 python3-dev wget
-RUN wget https://bootstrap.pypa.io/get-pip.py
-RUN python3 get-pip.py
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        wget \
+        ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade google-cloud-core==1.7.1 \
-	google-cloud-pubsub==2.6.0 google-cloud-storage==1.40.0 \
-	google-cloud-vision==2.3.2 Pillow==8.3.1 pytz==2022.7.1
+# Create app directory
+WORKDIR /opt/safeimage
 
-ADD src /opt/safeimage/bin
-RUN chmod u+x /opt/safeimage/bin/worker.py
-CMD ["/opt/safeimage/bin/worker.py"]
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY src/ bin/
+
+# Set executable permissions
+RUN chmod +x bin/worker.py
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /opt/safeimage
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python3 -c "import sys; sys.exit(0)"
+
+CMD ["python3", "bin/worker.py"]
